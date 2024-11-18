@@ -35,7 +35,8 @@ def main():
     pen_position = pen_holder_pose.translation  # [x, y, z]
 
     # Define Pre-Pick Configuration (e.g., above the pen holder)
-    pre_pick_joint_angles = home_joint_angles + np.array([0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0])
+    pre_pick_joint_angles = np.array([0.17955062, -0.1394879,   0.17290883, -2.6898799,   0.07158609,  2.5683256,
+  1.03850022])
 
     # Move to Home Position
     print("Moving to Home Position...")
