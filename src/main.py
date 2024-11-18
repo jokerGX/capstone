@@ -2,89 +2,48 @@
 
 import argparse
 import numpy as np
+import rospy
+from motionplanner import TrajectoryGenerator, TrajectoryFollower
 from frankapy import FrankaArm
-import time
 
-def load_pose(filename):
-    """Load a saved pose from a .npy file."""
-    return np.load(filename, allow_pickle=True).item()
-
-def move_to_joint_positions(fa, joint_positions, duration=2.0):
-    """Move the robot to the specified joint positions."""
-    fa.goto_joints(joint_positions, duration=duration, wait=True)
-
-def open_gripper(fa, width=0.08):
-    """Open the gripper to the specified width."""
-    fa.open_gripper(width=width)
-    time.sleep(1)  # Wait for gripper to open
-
-def close_gripper(fa, width=0.0):
-    """Close the gripper to grasp the pen."""
-    fa.close_gripper(width=width)
-    time.sleep(1)  # Wait for gripper to close
+def load_joint_angles(filename):
+    """Load joint angles from a .npy file."""
+    return np.load(filename)
 
 def main():
-    # Initialize the Franka Arm
+    # Initialize ROS node
+    rospy.init_node('robot_checkpoint', anonymous=True)
+
+    # Initialize Franka Arm
     fa = FrankaArm()
 
-    # Load the Home Configuration
-    home_joint_angles = np.load("home_joint_angles.npy")
+    # Initialize Trajectory Generator and Follower
+    traj_gen = TrajectoryGenerator()
+    traj_follower = TrajectoryFollower()
 
-    # Load the Pen Holder Pose (assuming calibration has been done)
-    pen_holder_pose = load_pose("pen_holder_pose.npy")
-    pen_position = pen_holder_pose.translation  # [x, y, z]
+    # Load Joint Configurations
+    home_joint_angles = load_joint_angles("home_joint_angles.npy")
+    pre_pick_joint_angles = load_joint_angles("pre_pick_joint_angles.npy")
+    pen_grasp_joint_angles = load_joint_angles("pen_grasp_joint_angles.npy")
 
-    # Define Pre-Pick Configuration (e.g., above the pen holder)
-    pre_pick_joint_angles = np.array([0.17955062, -0.1394879,   0.17290883, -2.6898799,   0.07158609,  2.5683256,
-  1.03850022])
+    # Generate Trajectories
+    print("Generating Trajectories...")
+    traj1 = traj_gen.generate_joint_space_trajectory(home_joint_angles, pre_pick_joint_angles, steps=100)
+    traj2 = traj_gen.generate_joint_space_trajectory(pre_pick_joint_angles, pen_grasp_joint_angles, steps=100)
+    print("Trajectories Generated.")
 
-    # Move to Home Position
-    print("Moving to Home Position...")
-    move_to_joint_positions(fa, home_joint_angles)
-    print("Reached Home Position.")
+    # Execute Trajectory 1: Home → Pre-Pick
+    print("Executing Trajectory 1: Home → Pre-Pick...")
+    traj_follower.follow_joint_trajectory(traj1)
+    print("Trajectory 1 Completed.")
 
-    # Open Gripper
-    print("Opening Gripper...")
-    open_gripper(fa, width=0.08)
-    print("Gripper Opened.")
+    # Execute Trajectory 2: Pre-Pick → Pen-Grasp
+    print("Executing Trajectory 2: Pre-Pick → Pen-Grasp...")
+    traj_follower.follow_joint_trajectory(traj2)
+    print("Trajectory 2 Completed.")
 
-    # Move to Pre-Pick Position
-    print("Moving to Pre-Pick Position...")
-    move_to_joint_positions(fa, pre_pick_joint_angles)
-    print("Reached Pre-Pick Position.")
-
-    # Move Vertically Down to Pen Holder
-    print("Approaching Pen Holder...")
-    # Simple approach: move down in z-axis by a fixed amount
-    approach_height = 0.1  # 10 cm above the pen
-    current_pose = fa.get_pose().translation
-    target_pose = current_pose.copy()
-    target_pose[2] -= approach_height  # Move down
-
-    fa.goto_pose(target_pose, duration=2.0, wait=True)
-    print("Reached Pen Holder.")
-
-    # Close Gripper to Grasp the Pen
-    print("Closing Gripper to Grasp Pen...")
-    close_gripper(fa, width=0.0)
-    print("Pen Grasped.")
-
-    # Lift the Pen Vertically
-    print("Lifting the Pen...")
-    lifted_pose = target_pose.copy()
-    lifted_pose[2] += approach_height  # Move up
-    fa.goto_pose(lifted_pose, duration=2.0, wait=True)
-    print("Pen Lifted.")
-
-    # Move Back to Home Position
-    print("Returning to Home Position...")
-    move_to_joint_positions(fa, home_joint_angles)
-    print("Returned to Home Position.")
-
-    # Optionally, open the gripper to release the pen
-    # print("Releasing Pen...")
-    # open_gripper(fa, width=0.08)
-    # print("Pen Released.")
+    # Optionally, you can add gripper commands here if needed
+    # e.g., Open or close gripper after grasping
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Robot Checkpoint Script")

@@ -174,6 +174,27 @@ class TrajectoryGenerator:
         - Use previous joint solution as seed for next IK
         """
         raise NotImplementedError("Implement convert_cartesian_to_joint")
+    
+    def generate_joint_space_trajectory(self, start_joints, end_joints, steps=100):
+        """
+        Generate a linear joint-space trajectory between start and end configurations.
+
+        Parameters
+        ----------
+        start_joints : np.ndarray
+            Starting joint angles (7,)
+        end_joints : np.ndarray
+            Ending joint angles (7,)
+        steps : int
+            Number of interpolation steps
+
+        Returns
+        -------
+        np.ndarray
+            Trajectory of shape (steps, 7)
+        """
+        trajectory = np.linspace(start_joints, end_joints, steps)
+        return trajectory
 
 class TrajectoryFollower:
     def __init__(self):
